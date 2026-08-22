@@ -242,10 +242,12 @@ async function connectWallet(jar, label, walletAddress) {
     method: 'POST',
     headers: {
       Accept: 'application/x-tss-framed, application/x-ndjson, application/json',
+      'Content-Type': 'application/json',
       'X-Tsr-Serverfn': 'true',
       Origin: BASE,
       Referer: `${BASE}/`,
     },
+    body: '{}',
   });
 
   const challenge = parseTss(powRes.data)?.result;
