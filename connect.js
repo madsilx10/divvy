@@ -19,6 +19,16 @@ const X_BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D
 
 const UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36';
 
+const BROWSER_HEADERS = {
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Fetch-Site': 'same-origin',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Ch-Ua': '"Chromium";v="137", "Not/A)Brand";v="24", "Google Chrome";v="137"',
+  'Sec-Ch-Ua-Mobile': '?1',
+  'Sec-Ch-Ua-Platform': '"Android"',
+};
+
 // ====== Base58 manual (buat decode private key Solana, no depend ke package bs58) ======
 const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function base58Decode(str) {
@@ -253,13 +263,7 @@ async function connectWallet(jar, label, walletAddress) {
       'X-Tsr-Serverfn': 'true',
       Origin: BASE,
       Referer: `${BASE}/`,
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Sec-Fetch-Site': 'same-origin',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Ch-Ua': '"Chromium";v="137", "Not/A)Brand";v="24", "Google Chrome";v="137"',
-      'Sec-Ch-Ua-Mobile': '?1',
-      'Sec-Ch-Ua-Platform': '"Android"',
+      ...BROWSER_HEADERS,
     },
     body: JSON.stringify({
       t: { t: 10, i: 0, p: { k: [], v: [] }, o: 0 },
@@ -294,12 +298,17 @@ async function connectWallet(jar, label, walletAddress) {
       'X-Tsr-Serverfn': 'true',
       Origin: BASE,
       Referer: `${BASE}/`,
+      ...BROWSER_HEADERS,
     },
     body: buildWalletPayload(walletAddress, challenge.token, solution, REF_CODE),
   });
 
   const result = parseTss(walletRes.data)?.result;
   if (!result?.walletAddress) {
+    console.log(`${label} --- DEBUG wallet submit gagal ---`);
+    console.log(`${label} status: ${walletRes.status}`);
+    console.log(`${label} body: ${JSON.stringify(walletRes.data)}`);
+    console.log(`${label} --- end debug ---`);
     throw new Error(`wallet connect gagal: ${JSON.stringify(walletRes.data).slice(0, 300)}`);
   }
   return result;
