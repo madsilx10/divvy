@@ -252,6 +252,15 @@ async function connectWallet(jar, label, walletAddress) {
 
   const challenge = parseTss(powRes.data)?.result;
   if (!challenge?.nonce) {
+    console.log(`${label} --- DEBUG PoW gagal ---`);
+    console.log(`${label} status: ${powRes.status}`);
+    console.log(`${label} headers:`);
+    for (const [k, v] of powRes.headers.entries()) {
+      console.log(`${label}   ${k}: ${v}`);
+    }
+    console.log(`${label} body: ${JSON.stringify(powRes.data)}`);
+    console.log(`${label} cookies terkirim: ${jar.cookieHeaderFor(`${BASE}/_serverFn/${POW_FN_ID}`)}`);
+    console.log(`${label} --- end debug ---`);
     throw new Error(`gagal ambil pow challenge: ${JSON.stringify(powRes.data).slice(0, 300)}`);
   }
 
