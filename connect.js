@@ -253,6 +253,13 @@ async function connectWallet(jar, label, walletAddress) {
       'X-Tsr-Serverfn': 'true',
       Origin: BASE,
       Referer: `${BASE}/`,
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Sec-Fetch-Site': 'same-origin',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Ch-Ua': '"Chromium";v="137", "Not/A)Brand";v="24", "Google Chrome";v="137"',
+      'Sec-Ch-Ua-Mobile': '?1',
+      'Sec-Ch-Ua-Platform': '"Android"',
     },
     body: '{}',
   });
