@@ -287,6 +287,9 @@ async function connectWallet(jar, label, walletAddress) {
   }
 
   console.log(`${label} solve PoW (difficulty ${challenge.difficulty})...`);
+  if (process.env.DEBUG_COOKIES) {
+    console.log(`${label} [debug] isi challenge lengkap: ${JSON.stringify(challenge)}`);
+  }
   const solution = solvePow(challenge.nonce, challenge.difficulty);
 
   console.log(`${label} submit wallet address...`);
