@@ -74,11 +74,18 @@ class CookieJar {
   absorb(res, url) {
     const domain = CookieJar.domainFromUrl(url);
     let setCookies = [];
-    if (typeof res.headers.getSetCookie === 'function') {
+    const supportsGetSetCookie = typeof res.headers.getSetCookie === 'function';
+    if (supportsGetSetCookie) {
       setCookies = res.headers.getSetCookie();
     } else {
       const single = res.headers.get('set-cookie');
       if (single) setCookies = [single];
+    }
+    if (process.env.DEBUG_COOKIES) {
+      console.log(`  [cookie-debug] url=${url}`);
+      console.log(`  [cookie-debug] getSetCookie support: ${supportsGetSetCookie}`);
+      console.log(`  [cookie-debug] raw set-cookie count: ${setCookies.length}`);
+      setCookies.forEach((c, i) => console.log(`  [cookie-debug]   [${i}] ${c}`));
     }
     for (const raw of setCookies) {
       const first = raw.split(';')[0];
@@ -393,6 +400,12 @@ async function processAccount(account, index) {
     }
 
     console.log(`${label} X connected ✅`);
+    if (process.env.DEBUG_COOKIES) {
+      console.log(`${label} [cookie-debug] isi jar setelah callback:`);
+      for (const [k, v] of jar.jar.entries()) {
+        console.log(`${label} [cookie-debug]   ${k} = ${v}`);
+      }
+    }
 
     if (!account.wallet) {
       console.log(`${label} gaada wallet address di akun.txt, skip step connect wallet.`);
