@@ -261,7 +261,11 @@ async function connectWallet(jar, label, walletAddress) {
       'Sec-Ch-Ua-Mobile': '?1',
       'Sec-Ch-Ua-Platform': '"Android"',
     },
-    body: '{}',
+    body: JSON.stringify({
+      t: { t: 10, i: 0, p: { k: [], v: [] }, o: 0 },
+      f: 63,
+      m: [],
+    }),
   });
 
   const challenge = parseTss(powRes.data)?.result;
