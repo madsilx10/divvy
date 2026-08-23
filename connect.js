@@ -73,9 +73,21 @@ function pubkeyFromPrivateKey(privKeyBase58) {
   return base58Encode(pubKeyBytes);
 }
 
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-// ====== Simple per-account cookie jar (fetch gak handle cookie otomatis) ======
+// Ed25519 sign via Node built-in crypto (no npm extra)
+const DER_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
+function signMessage(message, privateKeyBase58) {
+  const secretKey = base58Decode(privateKeyBase58.trim());
+  if (secretKey.length !== 64) throw new Error(`privkey harus 64 byte, ketemu ${secretKey.length}`);
+  const seed = secretKey.subarray(0, 32);
+  const derKey = Buffer.concat([DER_ED25519_PREFIX, seed]);
+  const keyObj = crypto.createPrivateKey({ key: derKey, format: 'der', type: 'pkcs8' });
+  const msgBytes = Buffer.from(message, 'utf8');
+  const sig = crypto.sign(null, msgBytes, keyObj);
+  return base58Encode(sig);
+}
+
+
 class CookieJar {
   constructor() { this.jar = new Map(); } // key: "domain|name" -> value
 
@@ -190,45 +202,25 @@ function parseTss(node) {
   }
 }
 
-function buildWalletPayload(walletAddress, token, solution, referrerCode) {
+function buildWalletPayload(walletAddress, token, solution, referrerCode, signature) {
   const referrerNode = referrerCode
     ? { t: 1, s: referrerCode }
     : { t: 2, s: 0 };
 
+  const dataFields = { k: ['walletAddress', 'referrer', 'website', 'challenge'], v: [
+    { t: 1, s: walletAddress },
+    referrerNode,
+    { t: 1, s: '' },
+    { t: 10, i: 2, p: { k: ['token', 'solution'], v: [{ t: 1, s: token }, { t: 0, s: solution }] }, o: 0 },
+  ]};
+
+  if (signature) {
+    dataFields.k.push('signature');
+    dataFields.v.push({ t: 1, s: signature });
+  }
+
   return JSON.stringify({
-    t: {
-      t: 10,
-      i: 0,
-      p: {
-        k: ['data'],
-        v: [{
-          t: 10,
-          i: 1,
-          p: {
-            k: ['walletAddress', 'referrer', 'website', 'challenge'],
-            v: [
-              { t: 1, s: walletAddress },
-              referrerNode,
-              { t: 1, s: '' }, // website: honeypot field, harus kosong
-              {
-                t: 10,
-                i: 2,
-                p: {
-                  k: ['token', 'solution'],
-                  v: [
-                    { t: 1, s: token },
-                    { t: 0, s: solution },
-                  ],
-                },
-                o: 0,
-              },
-            ],
-          },
-          o: 0,
-        }],
-      },
-      o: 0,
-    },
+    t: { t: 10, i: 0, p: { k: ['data'], v: [{ t: 10, i: 1, p: dataFields, o: 0 }] }, o: 0 },
     f: 63,
     m: [],
   });
@@ -253,7 +245,7 @@ function solvePow(nonce, difficulty) {
   throw new Error('PoW solution gak ketemu (range habis)');
 }
 
-async function connectWallet(jar, label, walletAddress) {
+async function connectWallet(jar, label, walletAddress, account) {
   console.log(`${label} minta PoW challenge...`);
   const powRes = await req(jar, `${BASE}/_serverFn/${POW_FN_ID}`, {
     method: 'POST',
@@ -293,6 +285,16 @@ async function connectWallet(jar, label, walletAddress) {
   const solution = solvePow(challenge.nonce, challenge.difficulty);
 
   console.log(`${label} submit wallet address...`);
+
+  // SIGN_MSG: 'token' | 'nonce' | 'none' (default: token)
+  let signature = null;
+  const signMode = process.env.SIGN_MSG || 'token';
+  if (signMode !== 'none' && account.walletPriv) {
+    const msgToSign = signMode === 'nonce' ? challenge.nonce : challenge.token;
+    signature = signMessage(msgToSign, account.walletPriv);
+    console.log(`${label} [sign] mode=${signMode} sig=${signature.slice(0, 16)}...`);
+  }
+
   const walletRes = await req(jar, `${BASE}/_serverFn/${WALLET_FN_ID}`, {
     method: 'POST',
     headers: {
@@ -303,7 +305,7 @@ async function connectWallet(jar, label, walletAddress) {
       Referer: `${BASE}/`,
       ...BROWSER_HEADERS,
     },
-    body: buildWalletPayload(walletAddress, challenge.token, solution, REF_CODE),
+    body: buildWalletPayload(walletAddress, challenge.token, solution, REF_CODE, signature),
   });
 
   const result = parseTss(walletRes.data)?.result;
@@ -435,7 +437,7 @@ async function processAccount(account, index) {
       return { account: `${account.auth_token.slice(0, 8)}...`, status: 'success_no_wallet' };
     }
 
-    const walletResult = await connectWallet(jar, label, account.wallet);
+    const walletResult = await connectWallet(jar, label, account.wallet, account);
     console.log(`${label} WALLET CONNECTED ✅ regNo=${walletResult.registrationNumber} dvy=${walletResult.dvyAwarded}`);
 
     return {
