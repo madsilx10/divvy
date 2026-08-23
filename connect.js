@@ -289,11 +289,11 @@ async function connectWallet(jar, label, walletAddress, account) {
 
   console.log(`${label} submit wallet address...`);
 
-  // SIGN_MSG: 'token' | 'nonce' | 'none' (default: token)
+  // SIGN_MSG: 'nonce' | 'token' | 'none' (default: nonce)
   let signature = null;
-  const signMode = process.env.SIGN_MSG || 'token';
+  const signMode = process.env.SIGN_MSG || 'nonce';
   if (signMode !== 'none' && account.walletPriv) {
-    const msgToSign = signMode === 'nonce' ? challenge.nonce : challenge.token;
+    const msgToSign = signMode === 'token' ? challenge.token : challenge.nonce;
     signature = signMessage(msgToSign, account.walletPriv);
     const enc = process.env.SIGN_ENC || 'base58';
     console.log(`${label} [sign] mode=${signMode} enc=${enc} sig=${signature.slice(0, 16)}...`);
@@ -308,18 +308,29 @@ async function connectWallet(jar, label, walletAddress, account) {
   console.log(`${label} [dbg] sig(20): ${signature?.slice(0, 20) ?? 'null'}`);
   console.log(`${label} [dbg] sign_mode: ${process.env.SIGN_MSG || 'token'} enc: ${process.env.SIGN_ENC || 'base58'}`);
 
-  const walletRes = await req(jar, `${BASE}/_serverFn/${WALLET_FN_ID}`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/x-tss-framed, application/x-ndjson, application/json',
-      'Content-Type': 'application/json',
-      'X-Tsr-Serverfn': 'true',
-      Origin: BASE,
-      Referer: `${BASE}/`,
-      ...BROWSER_HEADERS,
-    },
-    body: walletPayload,
-  });
+  let walletRes;
+  let retries = 0;
+  while (true) {
+    walletRes = await req(jar, `${BASE}/_serverFn/${WALLET_FN_ID}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/x-tss-framed, application/x-ndjson, application/json',
+        'Content-Type': 'application/json',
+        'X-Tsr-Serverfn': 'true',
+        Origin: BASE,
+        Referer: `${BASE}/`,
+        ...BROWSER_HEADERS,
+      },
+      body: walletPayload,
+    });
+    if (walletRes.status === 429 && retries < 3) {
+      retries++;
+      console.log(`${label} kena 429, tunggu 30 detik lalu retry (${retries}/3)...`);
+      await sleep(30000);
+      continue;
+    }
+    break;
+  }
 
   const result = parseTss(walletRes.data)?.result;
   if (!result?.walletAddress) {
@@ -484,7 +495,7 @@ async function runBatch(accounts, indices) {
     const res = await processAccount(accounts[i], i);
     results.push(res);
     if (n < indices.length - 1) {
-      await sleep(2000 + Math.random() * 2000);
+      await sleep(15000 + Math.random() * 15000);
     }
   }
   fs.writeFileSync(RESULTS_FILE, JSON.stringify(results, null, 2));
