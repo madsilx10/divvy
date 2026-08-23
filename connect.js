@@ -306,7 +306,8 @@ async function connectWallet(jar, label, walletAddress, account) {
   console.log(`${label} [dbg] nonce: ${challenge.nonce}`);
   console.log(`${label} [dbg] solution: ${solution}`);
   console.log(`${label} [dbg] sig(20): ${signature?.slice(0, 20) ?? 'null'}`);
-  console.log(`${label} [dbg] sign_mode: ${process.env.SIGN_MSG || 'token'} enc: ${process.env.SIGN_ENC || 'base58'}`);
+  console.log(`${label} [dbg] sign_mode: ${process.env.SIGN_MSG || 'nonce'} enc: ${process.env.SIGN_ENC || 'base58'}`);
+  console.log(`${label} [dbg] raw: ${walletPayload}`);
 
   let walletRes;
   let retries = 0;
