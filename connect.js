@@ -84,7 +84,10 @@ function signMessage(message, privateKeyBase58) {
   const keyObj = crypto.createPrivateKey({ key: derKey, format: 'der', type: 'pkcs8' });
   const msgBytes = Buffer.from(message, 'utf8');
   const sig = crypto.sign(null, msgBytes, keyObj);
-  return base58Encode(sig);
+  const enc = process.env.SIGN_ENC || 'base58';
+  if (enc === 'base64') return sig.toString('base64');
+  if (enc === 'hex') return sig.toString('hex');
+  return base58Encode(sig); // default: base58
 }
 
 
@@ -292,7 +295,8 @@ async function connectWallet(jar, label, walletAddress, account) {
   if (signMode !== 'none' && account.walletPriv) {
     const msgToSign = signMode === 'nonce' ? challenge.nonce : challenge.token;
     signature = signMessage(msgToSign, account.walletPriv);
-    console.log(`${label} [sign] mode=${signMode} sig=${signature.slice(0, 16)}...`);
+    const enc = process.env.SIGN_ENC || 'base58';
+    console.log(`${label} [sign] mode=${signMode} enc=${enc} sig=${signature.slice(0, 16)}...`);
   }
 
   const walletRes = await req(jar, `${BASE}/_serverFn/${WALLET_FN_ID}`, {
