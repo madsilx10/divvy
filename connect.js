@@ -300,16 +300,13 @@ async function connectWallet(jar, label, walletAddress, account) {
   }
 
   const walletPayload = buildWalletPayload(walletAddress, challenge.token, solution, REF_CODE, signature);
-  if (process.env.DEBUG_COOKIES) {
-    const parsed = JSON.parse(walletPayload);
-    const data = parsed.t?.p?.v?.[0]?.p;
-    console.log(`${label} [debug] wallet payload fields: ${JSON.stringify(data?.k)}`);
-    console.log(`${label} [debug] walletAddress: ${walletAddress}`);
-    console.log(`${label} [debug] challenge.token (first 40): ${challenge.token.slice(0, 40)}...`);
-    console.log(`${label} [debug] challenge.nonce: ${challenge.nonce}`);
-    console.log(`${label} [debug] solution: ${solution}`);
-    console.log(`${label} [debug] signature (first 20): ${signature?.slice(0, 20) ?? 'null'}...`);
-  }
+  const dbgData = JSON.parse(walletPayload).t?.p?.v?.[0]?.p;
+  console.log(`${label} [dbg] fields: ${JSON.stringify(dbgData?.k)}`);
+  console.log(`${label} [dbg] wallet: ${walletAddress}`);
+  console.log(`${label} [dbg] nonce: ${challenge.nonce}`);
+  console.log(`${label} [dbg] solution: ${solution}`);
+  console.log(`${label} [dbg] sig(20): ${signature?.slice(0, 20) ?? 'null'}`);
+  console.log(`${label} [dbg] sign_mode: ${process.env.SIGN_MSG || 'token'} enc: ${process.env.SIGN_ENC || 'base58'}`);
 
   const walletRes = await req(jar, `${BASE}/_serverFn/${WALLET_FN_ID}`, {
     method: 'POST',
